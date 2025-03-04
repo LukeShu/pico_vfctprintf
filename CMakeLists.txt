@@ -1,56 +1,57 @@
 # Copyright (c) 2020  Raspberry Pi (Trading) Ltd.
 # SPDX-License-Identifier: BSD-3-Clause
+#
+# Copyright (c) 2025  Luke T. Shumaker
+# SPDX-License-Identifier: BSD-3-Clause
 
-if (NOT TARGET pico_printf)
-    # library to be depended on - we make this depend on particular implementations using per target generator expressions
-    pico_add_library(pico_printf)
+if (NOT COMMAND "pico_add_library")
+    cmake_minimum_required(VERSION 3.13...3.27)
+    project(pico_vfctprintf)
 
-    # no custom implementation; falls thru to compiler
-    pico_add_library(pico_printf_compiler)
-
-    target_include_directories(pico_printf_headers SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
-
-    # add alias "default" which is just pico.
-    add_library(pico_printf_default INTERFACE)
-    target_link_libraries(pico_printf_default INTERFACE pico_printf_pico)
-
-    set(PICO_DEFAULT_PRINTF_IMPL pico_printf_default)
-
-    target_link_libraries(pico_printf INTERFACE
-            $<IF:$<BOOL:$<TARGET_PROPERTY:PICO_TARGET_PRINTF_IMPL>>,$<TARGET_PROPERTY:PICO_TARGET_PRINTF_IMPL>,${PICO_DEFAULT_PRINTF_IMPL}>)
-
-    pico_add_library(pico_printf_pico)
-    target_sources(pico_printf_pico INTERFACE
-            ${CMAKE_CURRENT_LIST_DIR}/printf.c
-    )
-    target_link_libraries(pico_printf_pico INTERFACE pico_printf_headers)
-
-    pico_add_library(pico_printf_none)
-    target_sources(pico_printf_none INTERFACE
-            ${CMAKE_CURRENT_LIST_DIR}/printf_none.S
-    )
-    target_link_libraries(pico_printf_none INTERFACE pico_printf_headers)
-
-    function(wrap_printf_functions TARGET)
-        # note that printf and vprintf are in pico_stdio so we can provide thread safety
-        pico_wrap_function(${TARGET} sprintf)
-        pico_wrap_function(${TARGET} snprintf)
-        pico_wrap_function(${TARGET} vsnprintf)
+    # create an INTERFACE library named target, and define LIB_TARGET=1 (upper case) as a compile option
+    # and make it dependent on a pre-existing corresponding _headers library
+    # optional arg NOFLAG will skip the LIB_TARGET definition
+    function(pico_add_impl_library target)
+        add_library(${target} INTERFACE)
+        string(TOUPPER ${target} TARGET_UPPER)
+        if (${ARGC} GREATER 1)
+            if (NOT "${ARGV1}" STREQUAL "NOFLAG")
+                message(FATAL_ERROR "Unknown parameter ${ARGV1}")
+            endif()
+        else()
+            target_compile_definitions(${target} INTERFACE LIB_${TARGET_UPPER}=1)
+        endif()
+        target_link_libraries(${target} INTERFACE ${target}_headers)
     endfunction()
 
-    wrap_printf_functions(pico_printf_pico)
-    wrap_printf_functions(pico_printf_none)
+    # create an INTERFACE library named target along with associated header, and define LIB_TARGET=1 (upper case) as a compile option
+    # optional arg NOFLAG will skip the LIB_TARGET definition
+    function(pico_add_library target)
+        add_library(${target}_headers INTERFACE)
+        pico_add_impl_library(${target} ${ARGN})
+    endfunction()
 
-    # always hook printf for printf_none with out weak impl, as it is handled by pico_stdio
-    # but that library may not be included
-    pico_wrap_function(pico_printf_none printf)
+    set(PICO_SDK_TESTS_ENABLED 1)
+endif()
 
-    macro(pico_set_printf_implementation TARGET IMPL)
-        get_target_property(target_type ${TARGET} TYPE)
-        if ("EXECUTABLE" STREQUAL "${target_type}")
-            set_target_properties(${TARGET} PROPERTIES PICO_TARGET_PRINTF_IMPL "pico_printf_${IMPL}")
-        else()
-            message(FATAL_ERROR "printf implementation must be set on executable not library")
-        endif()
-    endmacro()
+if (NOT TARGET pico_vfctprintf)
+    pico_add_library(pico_vfctprintf)
+
+    target_include_directories(pico_vfctprintf_headers SYSTEM INTERFACE ${CMAKE_CURRENT_LIST_DIR}/include)
+
+    target_sources(pico_vfctprintf INTERFACE
+            ${CMAKE_CURRENT_LIST_DIR}/printf.c
+    )
+    target_link_libraries(pico_vfctprintf INTERFACE pico_vfctprintf_headers)
+
+    if (PICO_SDK_TESTS_ENABLED)
+        include(CTest)
+
+        add_executable(test_compile test/test_compile.c)
+        target_link_libraries(test_compile pico_vfctprintf)
+        add_test(
+            NAME    "pico_vfctprintf/test_compile"
+            COMMAND valgrind --error-exitcode=2 ./test_compile
+        )
+    endif()
 endif()
