@@ -1,3 +1,12 @@
+// Copyright (c) 2017-2019  Marco Paland (info@paland.com)
+// SPDX-License-Identifier: MIT
+//
+// Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+// SPDX-License-Identifier: BSD-3-Clause
+//
+// Copyright (c) 2025  Luke T. Shumaker
+// SPDX-License-Identifier: BSD-3-Clause
+//
 ///////////////////////////////////////////////////////////////////////////////
 // \author (c) Marco Paland (info@paland.com)
 //             2017-2019, PALANDesign Hannover, Germany
@@ -10,10 +19,10 @@
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -34,11 +43,62 @@
 #include <sstream>
 #include <math.h>
 
+#include "pico/vfctprintf.h"
 
 namespace test {
   // use functions in own test namespace to avoid stdio conflicts
-  #include "../printf.h"
-  #include "../printf.c"
+
+  // output: stdout
+  void _putchar(char character);
+  inline void _out_char(char character, void *arg)
+  {
+    (void) arg;
+    _putchar(character);
+  }
+  int vprintf(const char* format, va_list va)
+  {
+    return pico_vfctprintf(_out_char, nullptr, format, va);
+  }
+  int printf(const char* format, ...)
+  {
+    va_list va;
+    va_start(va, format);
+    int ret = pico_vfctprintf(_out_char, nullptr, format, va);
+    va_end(va);
+    return ret;
+  }
+
+  // output: string
+  int vsnprintf(char *buffer, size_t count, const char *format, va_list va)
+  {
+    return pico_vsnprintf(buffer, count, format, va);
+  }
+  int snprintf(char *buffer, size_t count, const char *format, ...)
+  {
+    va_list va;
+    va_start(va, format);
+    const int ret = pico_vsnprintf(buffer, count, format, va);
+    va_end(va);
+    return ret;
+  }
+  int sprintf(char *buffer, const char *format, ...)
+  {
+    va_list va;
+    va_start(va, format);
+    const int ret = pico_vsnprintf(buffer, (size_t) -1, format, va);
+    va_end(va);
+    return ret;
+  }
+
+  // output: function
+  int fctprintf(void (*out)(char character, void *arg), void *arg, const char *format, ...)
+  {
+    va_list va;
+    va_start(va, format);
+    int ret = pico_vfctprintf(out, arg, format, va);
+    va_end(va);
+    return ret;
+  }
 } // namespace test
 
 

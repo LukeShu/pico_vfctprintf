@@ -9,9 +9,21 @@ all: build
 
 ################################################################################
 
+generate/files = test/catch.hpp
+test/catch.hpp: $(MAKEFILE_LIST)
+	wget --no-use-server-timestamps -O $@ https://github.com/catchorg/Catch2/releases/download/v2.13.5/catch.hpp
+	sed -i '1i// SPDX-License-Identifier: BSL-1.0' $@
+
+generate: $(generate/files)
+.PHONY: generate
+
+generate-clean:
+	rm -f -- $(generate/files)
+.PHONY: generate-clean
+
 build/Makefile:
 	mkdir -p $(@D) && cd $(@D) && cmake -DCMAKE_BUILD_TYPE=Debug ..
-build: build/Makefile
+build: build/Makefile generate
 	$(MAKE) -C $(<D)
 .PHONY: build
 

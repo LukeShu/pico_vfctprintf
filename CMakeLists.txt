@@ -47,11 +47,11 @@ if (NOT TARGET pico_vfctprintf)
     if (PICO_SDK_TESTS_ENABLED)
         include(CTest)
 
-        add_executable(test_compile test/test_compile.c)
-        target_link_libraries(test_compile pico_vfctprintf)
+        add_executable(test_suite test/test_suite.cpp)
+        target_link_libraries(test_suite pico_vfctprintf)
         add_test(
-            NAME    "pico_vfctprintf/test_compile"
-            COMMAND valgrind --error-exitcode=2 ./test_compile
+            NAME    "pico_vfctprintf/test_suite"
+            COMMAND valgrind --error-exitcode=2 ./test_suite
         )
     endif()
 endif()
